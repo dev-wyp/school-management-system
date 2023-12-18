@@ -1,0 +1,73 @@
+name: Deploy production
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+-release*prod'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    strategy:
+      matrix:
+        node-version: [16.17.0]
+    env:
+      VITE_DEPLOY_SETTINGS: production
+      VITE_API_URL: ${{ secrets.PROD_API_URL }}
+      VITE_S3_URL: ${{ secrets.VUE_APP_S3_URL }}
+      VITE_AWS_URL: ${{ secrets.VUE_APP_AWS_URL }}
+      VITE_PAGE_SIZE: ${{ secrets.VUE_APP_PAGE_SIZE }}
+    steps:
+      - uses: actions/checkout@master
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Build Package for production
+        run: yarn run build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: public
+          path: public
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Deploy to S3 production
+        run: aws s3 sync ./dist s3://${{ secrets.BUCKET_NAME }}
+
+      - name: Invalidate Cloudfront CDN Production
+        run: aws cloudfront create-invalidation --distribution-id=${{ secrets.CLOUDFRONT_DISTRIBUTION_ID }} --paths '/*'
+  slack-notify:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    steps:
+      - name: Slack Notification Production
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_CHANNEL: prj-jr
+          SLACK_COLOR: '#3278BD'
+          SLACK_ICON: https://github.com/rtCamp.png?size=48
+          SLACK_MESSAGE: |
+            Deployed latest build to Production :rocket:
+            Deployed by: ${{ github.actor }}
+            URL: http://d34bolufy9t5fb.cloudfront.net/
+            Info: ${{ github.event.head_commit.message }}
+          SLACK_TITLE: |
+            JR Production
+            Deployment Notification
+          SLACK_USERNAME: ivan garcia
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

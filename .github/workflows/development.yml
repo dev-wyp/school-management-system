@@ -1,0 +1,77 @@
+name: Deploy V2
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+-release*v2'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    strategy:
+      matrix:
+        node-version: [16.17.0]
+    env:
+      VITE_DEPLOY_SETTINGS: v2
+      VITE_API_URL: ${{ secrets.V2_API_URL }}
+      VITE_S3_URL: ${{ secrets.VUE_APP_S3_URL }}
+      VITE_AWS_URL: ${{ secrets.VUE_APP_AWS_URL }}
+      VITE_PAGE_SIZE: ${{ secrets.VUE_APP_PAGE_SIZE }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+      SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'yarn'
+
+      - name: Install Dependencies
+        run: yarn install
+
+      - name: Build Package for development
+        run: yarn run build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: public
+          path: public
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+
+      - name: Deploy to S3 Development
+        run: aws s3 sync ./dist s3://${{ secrets.V2_BUCKET_NAME }}
+
+      - name: Invalidate Cloudfront CDN Development
+        run: aws cloudfront create-invalidation --distribution-id=${{ secrets.V2_CLOUDFRONT_DISTRIBUTION_ID }} --paths '/*'
+  slack-notify:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    if: "! contains(toJSON(github.event.commits.*.message), '[skip-ci]')"
+    steps:
+      - name: Slack Notification Development
+        uses: rtCamp/action-slack-notify@master
+        env:
+          SLACK_CHANNEL: prj-jrw-ip-v2
+          SLACK_COLOR: '#3278BD'
+          SLACK_ICON: https://github.com/rtCamp.png?size=48
+          SLACK_MESSAGE: |
+            Deployed latest JR Version 2 Build :rocket:
+            Deployed by: ${{ github.actor }}
+            URL: https://dev2.jrw-ip.jp
+            Info: ${{ github.event.head_commit.message }}
+          SLACK_TITLE: |
+            JR Version 2
+            Deployment Notification
+          SLACK_USERNAME: ivan garcia
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
