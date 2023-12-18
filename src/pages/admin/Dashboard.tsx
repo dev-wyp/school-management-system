@@ -1,7 +1,7 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 
 const Dashboard = () => {
-  const [ yes, setYes] = useState('true')
+  const [ yes, _setYes] = useState('true')
   return (
     <div>Admin Dashboard {yes}</div>
   )

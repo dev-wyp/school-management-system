@@ -1,9 +1,9 @@
 import MainLayout from '../layouts/MainLayout';
 import Dashboard from "../pages/admin/Dashboard";
 import Users from "../pages/users/Users";
-import UserForm from "../pages/users/UserForm";
+// import UserForm from "../pages/users/UserForm";
 import Students from "../pages/students/Students";
-import StudentForm from "../pages/students/StudentForm";
+// import StudentForm from "../pages/students/StudentForm";
 import Teachers from "../pages/teachers/Teachers";
 import TeacherForm from "../pages/teachers/TeacherForm";
 import { NotFound } from "../pages/NotFound";
