@@ -21,8 +21,8 @@ export const MainListItems = [
     },
     {
         id: 4,
-        title: 'Parents',
-        route: '/users',
+        title: 'All Staff',
+        route: '/staff',
         icon: <Layers />,
     },
 ]
